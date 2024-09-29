@@ -1,0 +1,17 @@
+{
+  "canisters": {
+    "anchor-relayer-backend": {
+      "candid": "src/anchor-relayer-backend/anchor-relayer-backend.did",
+      "package": "anchor-relayer-backend",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
