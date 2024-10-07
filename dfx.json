@@ -3,7 +3,8 @@
     "anchor-relayer-backend": {
       "candid": "src/anchor-relayer-backend/anchor-relayer-backend.did",
       "package": "anchor-relayer-backend",
-      "type": "rust"
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/anchor_relayer_backend.wasm"
     }
   },
   "defaults": {

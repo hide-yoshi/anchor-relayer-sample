@@ -2,8 +2,8 @@ use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},
     query,
 };
-
-mod rpc;
+//use solana_client_icp::{client_error::reqwest::Client, nonblocking::rpc_client::RpcClient};
+//use solana_sdk::signer::threshold_signer::{SchnorrKeyIds, ThresholdSigner};
 
 thread_local! {
     static SOL_DESTINATION_ADDRESS: std::cell::RefCell<String> = std::cell::RefCell::new("".to_string());
@@ -24,14 +24,12 @@ fn get_sol_destination_address() -> String {
 #[ic_cdk::update]
 async fn initialize(token: String) -> String {
     let destination_address = get_sol_destination_address();
-    let client = rpc::SolRpcClient::new("https://api.devnet.solana.com".to_string());
-    let res = client
-        .initialize(token.as_bytes().to_vec(), destination_address)
-        .await;
-    match res {
-        Ok(res) => res,
-        Err(e) => format!("Error: {:?}", e),
-    }
+    //let client = RpcClient::new("".to_string());
+    //let signer = ThresholdSigner::new(SchnorrKeyIds::TestKeyLocalDevelopment)
+    //    .await
+    //    .unwrap();
+    //let signer = ThresholdSigner
+    todo!()
 }
 
 /// Cleans up the HTTP response headers to make them deterministic.

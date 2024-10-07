@@ -17,3 +17,6 @@ ic-cdk-macros = "0.16.0"
 ic-cdk-timers = "0.7" # Feel free to remove this dependency if you don't need timers
 serde = "1.0.210"
 serde_json = "1.0.128"
+solana-client-icp = { path = "../../../solana-sdk-icp/client" }
+solana-sdk = { path = "../../../solana-sdk-icp/sdk" }
+
