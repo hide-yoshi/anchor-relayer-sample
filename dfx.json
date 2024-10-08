@@ -1,10 +1,9 @@
 {
   "canisters": {
-    "anchor-relayer-backend": {
-      "candid": "src/anchor-relayer-backend/anchor-relayer-backend.did",
-      "package": "anchor-relayer-backend",
-      "type": "custom",
-      "wasm": "target/wasm32-unknown-unknown/release/anchor_relayer_backend.wasm"
+    "relayer_backend": {
+      "candid": "src/relayer_backend/relayer_backend.did",
+      "package": "relayer_backend",
+      "type": "rust"
     }
   },
   "defaults": {

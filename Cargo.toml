@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "src/anchor-relayer-backend"
+    "src/relayer_backend"
 ]
 resolver = "2"
