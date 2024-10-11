@@ -1,5 +1,11 @@
 use std::str::FromStr;
 
+use anyhow::Result;
+use ic_cdk::api::management_canister::http_request::{
+    HttpResponse, TransformArgs, TransformContext, TransformFunc,
+};
+use serde::Deserialize;
+use serde_json::json;
 use solana_client_icp::{
     solana_sdk::{
         instruction::Instruction,
@@ -22,7 +28,7 @@ fn greet(name: String) -> String {
 #[ic_cdk::update]
 async fn sample() {
     let balance = devnet_client()
-        .get_balance(&local_signer().await.pubkey(), CallOptions::default())
+        .get_balance(&local_signer().await.pubkey(), call_opt())
         .await
         .unwrap();
     ic_cdk::print(format!("Balance: {}", balance).as_str());
@@ -33,18 +39,18 @@ async fn sample_airdrop() {
     let signer = local_signer().await;
     let client = devnet_client();
     let before_balance = client
-        .get_balance(&signer.pubkey(), CallOptions::default())
+        .get_balance(&signer.pubkey(), call_opt())
         .await
         .unwrap();
     let result = client
-        .request_airdrop(&signer.pubkey(), LAMPORTS_PER_SOL, CallOptions::default())
+        .request_airdrop(&signer.pubkey(), LAMPORTS_PER_SOL, call_opt())
         .await;
     match result {
         Ok(tx) => ic_cdk::print(format!("Airdrop successful: {:?}", tx).as_str()),
         Err(e) => ic_cdk::print(format!("Airdrop failed: {:?}", e).as_str()),
     }
     let after_balance = client
-        .get_balance(&signer.pubkey(), CallOptions::default())
+        .get_balance(&signer.pubkey(), call_opt())
         .await
         .unwrap();
     ic_cdk::println!(
@@ -52,6 +58,42 @@ async fn sample_airdrop() {
         before_balance,
         after_balance
     );
+}
+
+fn call_opt() -> CallOptions {
+    let mut opt = CallOptions::default();
+    opt.transform = Some(TransformContext {
+        context: vec![],
+        function: TransformFunc {
+            0: candid::Func {
+                principal: ic_cdk::api::id(),
+                method: "transform".to_string(),
+            },
+        },
+    });
+    opt
+}
+
+#[ic_cdk::query]
+fn transform(raw: TransformArgs) -> HttpResponse {
+    let body: Result<serde_json::Value> =
+        serde_json::from_slice(&raw.response.body).map_err(Into::into);
+    if let Err(_) = body {
+        return HttpResponse {
+            status: raw.response.status,
+            headers: vec![],
+            body: raw.response.body,
+        };
+    }
+    let mut body = body.unwrap();
+
+    *body.get_mut("context").unwrap_or(&mut json!({"slot": 0})) = json!({ "slot": 0 });
+
+    HttpResponse {
+        status: raw.response.status,
+        headers: vec![],
+        body: serde_json::to_vec(&body).unwrap(),
+    }
 }
 
 #[ic_cdk::update]
@@ -78,10 +120,7 @@ async fn sample_instruction() {
         ],
     );
     let signers: Vec<Box<dyn Signer>> = vec![Box::new(signer.clone())];
-    let block_hash = client
-        .get_latest_blockhash(CallOptions::default())
-        .await
-        .unwrap();
+    let block_hash = client.get_latest_blockhash(call_opt()).await.unwrap();
     let tx = Transaction::new_signed_with_payer(
         &vec![instruction],
         Some(&signer.pubkey()),
@@ -89,16 +128,16 @@ async fn sample_instruction() {
         block_hash,
     )
     .await;
-    let result = client.send_transaction(&tx, CallOptions::default()).await;
+    let result = client.send_transaction(&tx, call_opt()).await;
     ic_cdk::println!("Transaction result: {:?}", result);
 }
 
 fn devnet_client() -> WasmClient {
-    WasmClient::new("https://api.devnet.solana.com")
+    WasmClient::new("https://rpc.ankr.com/solana_devnet")
 }
 
 async fn local_signer() -> ThresholdSigner {
-    ThresholdSigner::new(SchnorrKeyIds::TestKeyLocalDevelopment)
+    ThresholdSigner::new(SchnorrKeyIds::ProductionKey1)
         .await
         .unwrap()
 }
