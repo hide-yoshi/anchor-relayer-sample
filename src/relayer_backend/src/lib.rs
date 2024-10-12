@@ -127,12 +127,12 @@ async fn test_instruction() {
         ],
     );
     let signers: Vec<Box<dyn Signer>> = vec![Box::new(signer.clone())];
-    let block_hash = retry!(client.get_latest_blockhash(call_opt()).await);
+    let block_hash = retry!(client.get_latest_blockhash(call_opt()).await).unwrap();
     let tx = Transaction::new_signed_with_payer(
         &vec![instruction],
         Some(&signer.pubkey()),
         &signers,
-        block_hash.unwrap(),
+        block_hash,
     )
     .await;
     let result = client.send_transaction(&tx, call_opt()).await;
@@ -140,7 +140,17 @@ async fn test_instruction() {
 }
 
 fn devnet_client() -> WasmClient {
-    WasmClient::new("https://rpc.ankr.com/solana_devnet/86cce205fecf9f9fe4271a15e93e686be2ce71786a8c522f8a1da15a50e4aeac")
+    let denv = include_str!("./.env");
+    let rpc_url = denv
+        .split("\n")
+        .collect::<Vec<&str>>()
+        .first()
+        .unwrap()
+        .split("=")
+        .last()
+        .unwrap();
+
+    WasmClient::new(rpc_url)
 }
 
 async fn signer() -> ThresholdSigner {
