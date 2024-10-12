@@ -7,17 +7,18 @@ use ic_cdk::api::management_canister::http_request::{
 use serde_json::json;
 use solana_client_icp::{
     solana_sdk::{
-        instruction::Instruction,
+        instruction::{AccountMeta, Instruction},
         native_token::LAMPORTS_PER_SOL,
+        pubkey::Pubkey,
         signer::{
             threshold_signer::{SchnorrKeyIds, ThresholdSigner},
             Signer,
         },
+        system_program,
         transaction::Transaction,
     },
     CallOptions, WasmClient,
 };
-use solana_program::{instruction::AccountMeta, pubkey::Pubkey, system_program};
 const DESTINATION: &str = "9z3hM1vW44tw2uPh99Jh59xzEHjVaRoNzj6Nymcuv86V";
 #[ic_cdk::query]
 fn greet(name: String) -> String {

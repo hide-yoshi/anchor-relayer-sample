@@ -17,5 +17,4 @@ ic-cdk = "0.16"
 ic-cdk-timers = "0.10" # Feel free to remove this dependency if you don't need timers
 serde = "1.0.210"
 serde_json = "1.0.128"
-solana-client-icp = { path = "../../../solana-playground/wasm/solana-client" }
-solana-program = { path = "../../../solana-sdk-icp/sdk/program" }
+solana-client-icp = { git = "https://github.com/hide-yoshi/solana-client-icp" }
