@@ -4,7 +4,6 @@ use anyhow::Result;
 use ic_cdk::api::management_canister::http_request::{
     HttpResponse, TransformArgs, TransformContext, TransformFunc,
 };
-use serde::Deserialize;
 use serde_json::json;
 use solana_client_icp::{
     solana_sdk::{
@@ -26,22 +25,17 @@ fn greet(name: String) -> String {
 }
 
 #[ic_cdk::update]
-async fn sample() {
-    let balance = devnet_client()
+async fn balance() -> u64 {
+    devnet_client()
         .get_balance(&local_signer().await.pubkey(), call_opt())
         .await
-        .unwrap();
-    ic_cdk::print(format!("Balance: {}", balance).as_str());
+        .unwrap()
 }
 
 #[ic_cdk::update]
 async fn sample_airdrop() {
     let signer = local_signer().await;
     let client = devnet_client();
-    let before_balance = client
-        .get_balance(&signer.pubkey(), call_opt())
-        .await
-        .unwrap();
     let result = client
         .request_airdrop(&signer.pubkey(), LAMPORTS_PER_SOL, call_opt())
         .await;
@@ -49,15 +43,6 @@ async fn sample_airdrop() {
         Ok(tx) => ic_cdk::print(format!("Airdrop successful: {:?}", tx).as_str()),
         Err(e) => ic_cdk::print(format!("Airdrop failed: {:?}", e).as_str()),
     }
-    let after_balance = client
-        .get_balance(&signer.pubkey(), call_opt())
-        .await
-        .unwrap();
-    ic_cdk::println!(
-        "Balance before: {}, after: {}",
-        before_balance,
-        after_balance
-    );
 }
 
 fn call_opt() -> CallOptions {
@@ -86,6 +71,7 @@ fn transform(raw: TransformArgs) -> HttpResponse {
         };
     }
     let mut body = body.unwrap();
+    ic_cdk::println!("Transforming response: {:?}", body);
 
     *body.get_mut("context").unwrap_or(&mut json!({"slot": 0})) = json!({ "slot": 0 });
 
@@ -101,18 +87,38 @@ async fn get_pubkey() -> String {
     local_signer().await.pubkey().to_string()
 }
 
+macro_rules! retry {
+    ($f:expr, $count:expr) => {{
+        let mut retries = 0;
+        let result = loop {
+            let result = $f;
+            if result.is_ok() {
+                break result;
+            } else if retries > $count {
+                break result;
+            } else {
+                retries += 1;
+            }
+        };
+        result
+    }};
+    ($f:expr) => {
+        retry!($f, 5)
+    };
+}
+
 #[ic_cdk::update]
 async fn sample_instruction() {
     let program = Pubkey::from_str(DESTINATION).unwrap();
     let signer = local_signer().await;
     let client = devnet_client();
-    let key = "TEST2".to_string();
+    let key = "TEST3".to_string();
     let key_utf8 = key.as_bytes().as_ref();
     let initialize_discriminant: [u8; 8] = [175, 175, 109, 31, 13, 152, 155, 237];
     let pda = Pubkey::find_program_address(&vec![key_utf8], &program);
     let instruction = Instruction::new_with_borsh(
         program,
-        &(initialize_discriminant, "TEST2".to_string()),
+        &(initialize_discriminant, "TEST3".to_string()),
         vec![
             AccountMeta::new(pda.0, false),
             AccountMeta::new(signer.pubkey(), true),
@@ -120,12 +126,12 @@ async fn sample_instruction() {
         ],
     );
     let signers: Vec<Box<dyn Signer>> = vec![Box::new(signer.clone())];
-    let block_hash = client.get_latest_blockhash(call_opt()).await.unwrap();
+    let block_hash = retry!(client.get_latest_blockhash(call_opt()).await);
     let tx = Transaction::new_signed_with_payer(
         &vec![instruction],
         Some(&signer.pubkey()),
         &signers,
-        block_hash,
+        block_hash.unwrap(),
     )
     .await;
     let result = client.send_transaction(&tx, call_opt()).await;
@@ -133,7 +139,7 @@ async fn sample_instruction() {
 }
 
 fn devnet_client() -> WasmClient {
-    WasmClient::new("https://rpc.ankr.com/solana_devnet")
+    WasmClient::new("https://rpc.ankr.com/solana_devnet/86cce205fecf9f9fe4271a15e93e686be2ce71786a8c522f8a1da15a50e4aeac")
 }
 
 async fn local_signer() -> ThresholdSigner {
