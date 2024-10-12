@@ -1,24 +1,20 @@
 use std::str::FromStr;
-
+mod signer;
+mod tx;
 use anyhow::Result;
-use ic_cdk::api::management_canister::http_request::{
-    HttpResponse, TransformArgs, TransformContext, TransformFunc,
-};
+use ic_cdk::api::management_canister::http_request::{HttpResponse, TransformArgs};
 use serde_json::json;
+use signer::signer;
 use solana_client_icp::{
     solana_sdk::{
         instruction::{AccountMeta, Instruction},
-        native_token::LAMPORTS_PER_SOL,
         pubkey::Pubkey,
-        signer::{
-            threshold_signer::{SchnorrKeyIds, ThresholdSigner},
-            Signer,
-        },
+        signer::{threshold_signer::SchnorrKeyIds, Signer},
         system_program,
-        transaction::Transaction,
     },
-    CallOptions, WasmClient,
+    WasmClient,
 };
+use tx::TransactionInvoker;
 const DESTINATION: &str = "9z3hM1vW44tw2uPh99Jh59xzEHjVaRoNzj6Nymcuv86V";
 #[ic_cdk::query]
 fn greet(name: String) -> String {
@@ -27,37 +23,20 @@ fn greet(name: String) -> String {
 
 #[ic_cdk::update]
 async fn balance() -> u64 {
-    devnet_client()
-        .get_balance(&signer().await.pubkey(), call_opt())
+    let signer = signer(SchnorrKeyIds::ProductionKey1).await;
+    TransactionInvoker::new(signer.clone(), devnet_client())
+        .get_balance(signer.pubkey())
         .await
         .unwrap()
 }
 
 #[ic_cdk::update]
 async fn airdrop() {
-    let signer = signer().await;
-    let client = devnet_client();
-    let result = client
-        .request_airdrop(&signer.pubkey(), LAMPORTS_PER_SOL, call_opt())
-        .await;
-    match result {
-        Ok(tx) => ic_cdk::print(format!("Airdrop successful: {:?}", tx).as_str()),
-        Err(e) => ic_cdk::print(format!("Airdrop failed: {:?}", e).as_str()),
-    }
-}
-
-fn call_opt() -> CallOptions {
-    let mut opt = CallOptions::default();
-    opt.transform = Some(TransformContext {
-        context: vec![],
-        function: TransformFunc {
-            0: candid::Func {
-                principal: ic_cdk::api::id(),
-                method: "transform".to_string(),
-            },
-        },
-    });
-    opt
+    let signer = signer(SchnorrKeyIds::ProductionKey1).await;
+    TransactionInvoker::new(signer.clone(), devnet_client())
+        .airdrop(signer.pubkey())
+        .await
+        .unwrap();
 }
 
 #[ic_cdk::query]
@@ -85,33 +64,16 @@ fn transform(raw: TransformArgs) -> HttpResponse {
 
 #[ic_cdk::update]
 async fn pubkey() -> String {
-    signer().await.pubkey().to_string()
-}
-
-macro_rules! retry {
-    ($f:expr, $count:expr) => {{
-        let mut retries = 0;
-        let result = loop {
-            let result = $f;
-            if result.is_ok() {
-                break result;
-            } else if retries > $count {
-                break result;
-            } else {
-                retries += 1;
-            }
-        };
-        result
-    }};
-    ($f:expr) => {
-        retry!($f, 5)
-    };
+    signer(SchnorrKeyIds::ProductionKey1)
+        .await
+        .pubkey()
+        .to_string()
 }
 
 #[ic_cdk::update]
 async fn test_instruction() {
     let program = Pubkey::from_str(DESTINATION).unwrap();
-    let signer = signer().await;
+    let signer = signer(SchnorrKeyIds::ProductionKey1).await;
     let client = devnet_client();
     let key = "TEST3".to_string();
     let key_utf8 = key.as_bytes().as_ref();
@@ -126,17 +88,10 @@ async fn test_instruction() {
             AccountMeta::new_readonly(system_program::ID, false),
         ],
     );
-    let signers: Vec<Box<dyn Signer>> = vec![Box::new(signer.clone())];
-    let block_hash = retry!(client.get_latest_blockhash(call_opt()).await).unwrap();
-    let tx = Transaction::new_signed_with_payer(
-        &vec![instruction],
-        Some(&signer.pubkey()),
-        &signers,
-        block_hash,
-    )
-    .await;
-    let result = client.send_transaction(&tx, call_opt()).await;
-    ic_cdk::println!("Transaction result: {:?}", result);
+    TransactionInvoker::new(signer, client)
+        .invoke_instruction(instruction)
+        .await
+        .unwrap();
 }
 
 fn devnet_client() -> WasmClient {
@@ -151,10 +106,4 @@ fn devnet_client() -> WasmClient {
         .unwrap();
 
     WasmClient::new(rpc_url)
-}
-
-async fn signer() -> ThresholdSigner {
-    ThresholdSigner::new(SchnorrKeyIds::ProductionKey1)
-        .await
-        .unwrap()
 }
