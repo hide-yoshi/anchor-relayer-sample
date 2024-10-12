@@ -27,14 +27,14 @@ fn greet(name: String) -> String {
 #[ic_cdk::update]
 async fn balance() -> u64 {
     devnet_client()
-        .get_balance(&local_signer().await.pubkey(), call_opt())
+        .get_balance(&signer().await.pubkey(), call_opt())
         .await
         .unwrap()
 }
 
 #[ic_cdk::update]
-async fn sample_airdrop() {
-    let signer = local_signer().await;
+async fn airdrop() {
+    let signer = signer().await;
     let client = devnet_client();
     let result = client
         .request_airdrop(&signer.pubkey(), LAMPORTS_PER_SOL, call_opt())
@@ -83,8 +83,8 @@ fn transform(raw: TransformArgs) -> HttpResponse {
 }
 
 #[ic_cdk::update]
-async fn get_pubkey() -> String {
-    local_signer().await.pubkey().to_string()
+async fn pubkey() -> String {
+    signer().await.pubkey().to_string()
 }
 
 macro_rules! retry {
@@ -108,9 +108,9 @@ macro_rules! retry {
 }
 
 #[ic_cdk::update]
-async fn sample_instruction() {
+async fn test_instruction() {
     let program = Pubkey::from_str(DESTINATION).unwrap();
-    let signer = local_signer().await;
+    let signer = signer().await;
     let client = devnet_client();
     let key = "TEST3".to_string();
     let key_utf8 = key.as_bytes().as_ref();
@@ -142,7 +142,7 @@ fn devnet_client() -> WasmClient {
     WasmClient::new("https://rpc.ankr.com/solana_devnet/86cce205fecf9f9fe4271a15e93e686be2ce71786a8c522f8a1da15a50e4aeac")
 }
 
-async fn local_signer() -> ThresholdSigner {
+async fn signer() -> ThresholdSigner {
     ThresholdSigner::new(SchnorrKeyIds::ProductionKey1)
         .await
         .unwrap()
